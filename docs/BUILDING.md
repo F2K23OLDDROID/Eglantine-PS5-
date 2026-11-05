@@ -33,6 +33,50 @@ The first build takes a while (RADV and Eden are large). Later builds reuse ever
 already exists: the dependencies, this checkout's build cache in
 `~/.cache/ps5-eden-headless.<hash>`, and ccache.
 
+## Consolidated sources
+
+This checkout consolidates the upstream sources on top of [viejunerd/Eglantine-PS5-](
+https://github.com/viejunerd/Eglantine-PS5-), which itself stacks three layers:
+
+1. **Emulator core** - [Djihads80/Eglantine](https://github.com/Djihads80/Eglantine), branch
+   `nx2` (a Switch 2 capable fork of Eden), pinned as the `Eglantine/` submodule at
+   commit `3081c8e` (`nx2`, build-219).
+2. **PS5 frontend** - [heydemoura/EglantinePS5](https://github.com/heydemoura/EglantinePS5)
+   (launcher, Vulkan/RADV port, packaging), rebased on its `main`.
+3. **NUP / Bananza fixes** - the patches in `tools/eglantine-patches/` (0001, 0002, 0003,
+   0004, 0005, 0008-0012, 0014-0018): extracted base/updates content layering, Ampere U16
+   float-to-int source modifiers, shared audio-out session ownership, NUP packer directory
+   listing, load diagnostics, Vi2 command 201 stub, guest-thread watchdog, no static Vulkan
+   pipeline cache, NUP add-on content, Bananza empty command lists, recycled fence download
+   buffers, Bananza upscaler slots, feedback-loop copies, skip unchanged buffer checks, and
+   GPU split lost-wake recovery.
+
+`make deps` checks out the public submodule and applies the patches in `tools/
+eglantine-patches/` to the submodule's working tree (the build reads the patched tree).
+
+## Quick build script (WSL or Linux)
+
+`tools/build-ps5.sh` runs the same steps in order and stops with the command that fixes a
+missing prerequisite:
+
+```bash
+bash tools/build-ps5.sh
+```
+
+It runs `make toolchain`, `make deps` and `make package`, then prints where the program is:
+
+- `build/release/PPSA98515/eboot.bin` - the signed PS5 ELF container to copy to the console;
+- `build/headless-native/llvm-pie.elf` - the same program before signing (unstripped);
+- `build/headless-native/eboot.elf` - the same program after the PS5 module link.
+
+`--release` also writes the ZIP and its checksums to `dist/`, `--dev TITLE_ID` builds the
+development configuration, `--jobs N` sets the parallel jobs, and `--clean` starts from an
+empty `build/` and `dist/`.
+
+The build is a release build (`-O3`, function/data sections) tuned for the PS5's AMD Zen 2
+CPU (`-march=znver2`). `EDEN_PS5_BUILD_PRESET=custom` turns the CPU tuning off and `generic`
+targets baseline x86-64.
+
 ## Make targets
 
 | Target | What it does |
